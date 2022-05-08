@@ -61,43 +61,43 @@ contract SellNFT is Ownable, Pausable {
         bytes32 s
     ) public payable {
         require(block.timestamp < _deadline, "Signed Transaction Expired");
+        require(msg.value >= _amount, "Not enough ether sent");
         address buyer = msg.sender;
-        uint256 chainId;
-        assembly {
-            chainId := chainid()
+        uint256 chainId = 1337;
+
+        {
+            bytes32 eip712DomainHash = keccak256(
+                abi.encode(
+                    keccak256(
+                        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+                    ),
+                    keccak256(bytes("Desi-NFT")),
+                    keccak256(bytes("0.0.1")),
+                    chainId,
+                    address(this)
+                )
+            );
+
+            bytes32 hashStruct = keccak256(
+                abi.encode(
+                    keccak256(
+                        "sellNft(address sender,uint256 amount,uint256 tokenId,uint256 deadline)"
+                    ),
+                    buyer,
+                    _amount,
+                    _tokenId,
+                    _deadline
+                )
+            );
+
+            bytes32 hash = keccak256(
+                abi.encodePacked("\x19\x01", eip712DomainHash, hashStruct)
+            );
+
+            address signer = ecrecover(hash, v, r, s);
+            require(signer == this.owner(), "Invalid Signature");
+            require(signer != address(0));
         }
-
-        bytes32 eip712DomainHash = keccak256(
-            abi.encode(
-                keccak256(
-                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
-                ),
-                keccak256(bytes("Desi-NFT")),
-                keccak256(bytes("0.0.1")),
-                chainId,
-                address(this)
-            )
-        );
-
-        bytes32 hashStruct = keccak256(
-            abi.encode(
-                keccak256(
-                    "sellNft(address sender,uint256 amount,uint256 tokenId,uint256 deadline)"
-                ),
-                buyer,
-                _amount,
-                _tokenId,
-                _deadline
-            )
-        );
-
-        bytes32 hash = keccak256(
-            abi.encodePacked("\x19\x01", eip712DomainHash, hashStruct)
-        );
-
-        address signer = ecrecover(hash, v, r, s);
-        require(signer == this.owner(), "Invalid Signature");
-        require(signer != address(0));
 
         address tokenOwner = nftAddress.ownerOf(_tokenId);
 
